@@ -2,6 +2,7 @@
 
 abstract class WebGet {
 	protected $ch;
+	protected $dom;
 	protected $url;
 	protected $htmlPage;
 
@@ -38,9 +39,11 @@ abstract class WebGet {
 
 class WebWordCount extends WebGet {
 	protected $cleanHtml;
+	protected $useDOM;
 	protected $wordCountArray = array();
 
-	public function __construct($url = NULL) {
+	public function __construct($url = NULL, $useDOM = TRUE) {
+		$this->useDOM = $useDOM;
 		if (!is_null($url)) {
 			parent::__construct($url);
 			$this->cleanHtml = parent::getHtml();
@@ -48,7 +51,13 @@ class WebWordCount extends WebGet {
 	}
 
 	public function getWordCountFile() {
-		$this->getCleanHtml();
+		if ($this->useDOM == TRUE) {
+			$this->getDOMCleanHtml();
+		}
+		else {
+			$this->getCleanHtml();
+		}
+
 		$this->getWordsArray();
 		$this->createCSVFile();
 	}
@@ -58,6 +67,31 @@ class WebWordCount extends WebGet {
 		$this->removeScriptTags();
 		$this->removeStyleTags();
 		$this->cleanHtml = strip_tags($this->cleanHtml);
+		echo $this->cleanHtml;
+	}
+
+	private function getDOMCleanHtml() {
+		$this->dom = new DOMDocument();
+		$this->dom->loadHTML(parent::getHtml());  
+
+		$this->removeDOMTag('script');
+		$this->removeDOMTag('style');
+
+		$body = $this->dom->getElementsByTagName('body');
+
+		$this->cleanHtml = $body->item(0)->textContent;
+		echo $this->cleanHtml;
+	}
+
+	private function removeDOMTag($tag) {
+		$domNodeList = $this->dom->getElementsByTagname($tag); 
+		$domElemsToRemove = array(); 
+		foreach ( $domNodeList as $domElement ) { 
+		  $domElemsToRemove[] = $domElement; 
+		} 
+		foreach( $domElemsToRemove as $domElement ){ 
+		  $domElement->parentNode->removeChild($domElement); 
+		} 
 	}
 
 	private function getWordsArray() {
@@ -67,7 +101,7 @@ class WebWordCount extends WebGet {
 
 	private function createCSVFile() {
 		if (!is_dir('csv')) {
-			mkdir('csv', 0777, true); 
+			mkdir('csv', 0777); 
 		}
 
 		$url_parts = parse_url(parent::getURL());
