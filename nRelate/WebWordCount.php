@@ -37,50 +37,35 @@ abstract class WebGet {
 
 }
 
-class WebWordCount extends WebGet {
+interface IWebWords {
+	public function getCleanHtml($html);
+}
+
+class WebWordsDOM implements IWebWords {
 	protected $cleanHtml;
-	protected $useDOM;
-	protected $wordCountArray = array();
+	private $dom;
 
-	public function __construct($url = NULL, $useDOM = TRUE) {
-		$this->useDOM = $useDOM;
-		if (!is_null($url)) {
-			parent::__construct($url);
-			$this->cleanHtml = parent::getHtml();
-		}
-	}
-
-	public function getWordCountFile() {
-		if ($this->useDOM == TRUE) {
-			$this->getDOMCleanHtml();
-		}
-		else {
-			$this->getCleanHtml();
-		}
-
-		$this->getWordsArray();
-		$this->createCSVFile();
-	}
-
-	private function getCleanHtml() {
-		$this->getBody();
+	public function getCleanHtml($html) {
+		echo "DOMing\n";
+		$this->dom = new DOMDocument();
+		$this->dom->loadHTML($html);
 		$this->removeScriptTags();
 		$this->removeStyleTags();
-		$this->cleanHtml = strip_tags($this->cleanHtml);
-		echo $this->cleanHtml;
+		$this->getBody();
+		return $this->cleanHtml;
 	}
 
-	private function getDOMCleanHtml() {
-		$this->dom = new DOMDocument();
-		$this->dom->loadHTML(parent::getHtml());  
-
-		$this->removeDOMTag('script');
-		$this->removeDOMTag('style');
-
+	private function getBody() {
 		$body = $this->dom->getElementsByTagName('body');
-
 		$this->cleanHtml = $body->item(0)->textContent;
-		echo $this->cleanHtml;
+	}
+
+	private function removeScriptTags() {
+		$this->removeDOMTag('script');
+	}
+
+	private function removeStyleTags() {
+		$this->removeDOMTag('style');
 	}
 
 	private function removeDOMTag($tag) {
@@ -92,6 +77,62 @@ class WebWordCount extends WebGet {
 		foreach( $domElemsToRemove as $domElement ){ 
 		  $domElement->parentNode->removeChild($domElement); 
 		} 
+	}
+}
+
+
+class WebWordsRegex implements IWebWords {
+	protected $cleanHtml;
+
+	public function getCleanHtml($html) {
+		echo "REGEX\n";
+		$this->getBody();
+		$this->removeScriptTags();
+		$this->removeStyleTags();
+		$this->cleanHtml = strip_tags($this->cleanHtml);
+		return $this->cleanHtml;
+	}
+
+	private function getBody() {
+		preg_match('#<body(.*?)>(.*?)</body>#is', $this->cleanHtml, $matches);
+		if (isset($matches[2])) {
+			$this->cleanHtml = $matches[2];
+		} 
+	}
+
+	private function removeScriptTags() {
+		$this->cleanHtml = preg_replace('#<script(.*?)>(.*?)</script>#is', '', $this->cleanHtml); 
+	} 
+
+	private function removeStyleTags() {
+		$this->cleanHtml = preg_replace('#<style(.*?)>(.*?)</style>#is', '', $this->cleanHtml); 
+	} 
+}
+
+class WebWordCount extends WebGet {
+	protected $cleanHtml;
+	protected $useDOM;
+	protected $wordCountArray = array();
+
+	public function __construct($url = NULL, $useDOM = TRUE) {
+		$this->useDOM = $useDOM;
+		if (!is_null($url)) {
+			parent::__construct($url);
+		}
+	}
+
+	public function getWordCountFile() {
+		if ($this->useDOM == TRUE) {
+			$ww = new WebWordsDOM();
+			$this->cleanHtml = $ww->getCleanHtml(parent::getHtml());
+		}
+		else {
+			$ww = new WebWordsRegex();
+			$this->cleanHtml = $ww->getCleanHtml(parent::getHtml());
+		}
+
+		$this->getWordsArray();
+		$this->createCSVFile();
 	}
 
 	private function getWordsArray() {
@@ -116,21 +157,6 @@ class WebWordCount extends WebGet {
 
 		echo "Created $file_name\n";
 	}
-
-	private function getBody() {
-		preg_match('#<body(.*?)>(.*?)</body>#is', $this->cleanHtml, $matches);
-		if (isset($matches[2])) {
-			$this->cleanHtml = $matches[2];
-		} 
-	}
-
-	private function removeScriptTags() {
-		$this->cleanHtml = preg_replace('#<script(.*?)>(.*?)</script>#is', '', $this->cleanHtml); 
-	} 
-
-	private function removeStyleTags() {
-		$this->cleanHtml = preg_replace('#<style(.*?)>(.*?)</style>#is', '', $this->cleanHtml); 
-	} 
 }
 
 ?>

@@ -17,7 +17,7 @@ $urls = array('http://php.about.com',
 							'http://www.nytimes.com/pages/arts/index.html');
 
 foreach($urls as $url) {
-	$wg = new WebWordCount($url);
+	$wg = new WebWordCount($url, TRUE);
 	$wg->getWordCountFile();
 }
 
